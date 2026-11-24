@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 
 // One line: the funniest one-line git commit message an AI coding agent
 // would write right before breaking production on a Friday.
@@ -60,10 +60,15 @@ if (/[\u0000-\u001f\u007f\ufeff\u200b-\u200d]/.test(text)) {
 }
 
 mkdirSync("/output", { recursive: true });
-writeFileSync("/output/entry.txt", text, { encoding: "utf8", mode: 0o644 });
+// Write atomically: a crash mid-write must never leave a partial entry.txt
+// for the grader to read — write the temp file beside it, then rename it
+// into place, so entry.txt is always the whole line or nothing.
+const tmpPath = "/output/.entry.txt.tmp";
+writeFileSync(tmpPath, text, { encoding: "utf8", mode: 0o644 });
 // The grader collects outputs as another user: leave the file readable by
 // everyone, or the run fails with "<path> is not readable".
-chmodSync("/output/entry.txt", 0o644);
+chmodSync(tmpPath, 0o644);
+renameSync(tmpPath, "/output/entry.txt");
 
 // Read it back and prove the file on disk is exactly the line: a write
 // that silently truncated, re-encoded or padded the entry would otherwise
